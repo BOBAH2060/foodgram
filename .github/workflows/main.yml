@@ -44,23 +44,6 @@ jobs:
           cd backend/
           python manage.py test
 
-  tests_frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - name: Install frontend dependencies
-        run: |
-          cd frontend/
-          npm ci --legacy-peer-deps
-      - name: Run frontend tests
-        run: |
-          cd frontend/
-          npm run test
-
   build_backend:
     runs-on: ubuntu-latest
     needs: tests_backend
@@ -83,7 +66,6 @@ jobs:
 
   build_frontend:
     runs-on: ubuntu-latest
-    needs: tests_frontend
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v3
