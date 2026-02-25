@@ -98,7 +98,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = '/backend_static/static'
 
-MEDIA_URL = 'foodgramstudents.hopto.org/media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = '/app/backend_media'
 
 DJOSER = {
