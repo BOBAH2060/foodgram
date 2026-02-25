@@ -242,7 +242,10 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             serializer.save()
 
-            return Response({'avatar': serializer.data['avatar']}, status=status.HTTP_200_OK)
+            return Response(
+                {'avatar': serializer.data['avatar']},
+                status=status.HTTP_200_OK
+            )
 
         if request.method == 'DELETE':
             if not user.avatar.name.startswith('data:image'):
