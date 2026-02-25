@@ -14,9 +14,7 @@ MEDIA_DOMAIN = os.getenv('MEDIA_DOMAIN')
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-CSRF_TRUSTED_ORIGINS = [
-    MEDIA_DOMAIN,
-]
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -105,6 +103,7 @@ STATIC_ROOT = '/backend_static/static'
 
 if MEDIA_DOMAIN:
     MEDIA_URL = f'{MEDIA_DOMAIN}/media/'
+    CSRF_TRUSTED_ORIGINS = [MEDIA_DOMAIN,]
 else:
     MEDIA_URL = '/media/'
 
