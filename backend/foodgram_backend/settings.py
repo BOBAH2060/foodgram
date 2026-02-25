@@ -106,7 +106,7 @@ if MEDIA_DOMAIN:
 else:
     MEDIA_URL = '/media/'
 
-MEDIA_ROOT = '/app/backend_media'
+MEDIA_ROOT = '/backend_media'
 
 DJOSER = {
     'USER_CREATE_PASSWORD_RETYPE': False,
