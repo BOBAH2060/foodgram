@@ -1,0 +1,42 @@
+volumes:
+  pg_data:
+  static:
+  media:
+  frontend_build:
+
+services:
+  db:
+    image: postgres:15
+    env_file: .env
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  
+  backend:
+    build: ./backend/
+    env_file: .env
+    volumes:
+      - static:/backend_static
+      - media:/backend_media
+    depends_on:
+      - db
+
+
+  frontend:
+    build: ./frontend/
+    command: cp -r /app/build/. /frontend_build/
+    volumes:
+      - static:/frontend_build
+
+  gateway:
+    build: ./nginx/
+    env_file: .env
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - static:/staticfiles
+      - media:/mediafiles
