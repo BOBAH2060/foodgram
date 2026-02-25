@@ -14,7 +14,9 @@ MEDIA_DOMAIN = os.getenv('MEDIA_DOMAIN')
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
+CSRF_TRUSTED_ORIGINS = [
+    MEDIA_DOMAIN,
+]
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
