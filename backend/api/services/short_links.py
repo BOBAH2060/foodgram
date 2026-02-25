@@ -1,5 +1,6 @@
 from django.http import Http404
 from django.shortcuts import redirect
+from django.conf import settings
 
 from recipes.models import Recipe
 
@@ -30,7 +31,7 @@ def redirect_short_link(request, short_code):
     try:
         recipe_id = decode(short_code)
         recipe = Recipe.objects.get(id=recipe_id)
-        base_url = request.build_absolute_uri('/').rstrip('/')
+        base_url = settings.MEDIA_DOMAIN
         return redirect(f'{base_url}/api/recipes/{recipe.id}/')
     except (Recipe.DoesNotExist, ValueError):
         raise Http404('Короткая ссылка не найдена')

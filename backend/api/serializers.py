@@ -3,6 +3,7 @@ import base64
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
+from django.conf import settings
 
 from recipes.models import (
     Recipe,
@@ -193,13 +194,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         representation['ingredients'] = IngredientReadSerializer(
             instance.recipeingredient_set.all(), many=True
         ).data
-        # image → полный URL
-        request = self.context.get('request')
         if instance.image:
-            representation['image'] = request.build_absolute_uri(
-                instance.image.url
-            ) \
-                if request else instance.image.url
+            representation['image'] = (
+                f'{settings.MEDIA_DOMAIN}{instance.image.url}' \
+                if settings.MEDIA_DOMAIN else instance.image.url
+            )
         else:
             representation['image'] = None
         return representation

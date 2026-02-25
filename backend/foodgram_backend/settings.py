@@ -10,6 +10,7 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-...')
+MEDIA_DOMAIN = os.getenv('MEDIA_DOMAIN')
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -100,7 +101,11 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = '/backend_static/static'
 
-MEDIA_URL = '/media/'
+if MEDIA_DOMAIN:
+    MEDIA_URL = f'{MEDIA_DOMAIN}/media/'
+else:
+    MEDIA_URL = '/media/'
+
 MEDIA_ROOT = '/app/backend_media'
 
 DJOSER = {

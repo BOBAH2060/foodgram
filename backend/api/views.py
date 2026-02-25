@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.conf import settings
 
 from recipes.models import (
     Favorite,
@@ -74,7 +75,7 @@ class RecipeViewSet(AddRemoveMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='get-link')
     def get_link(self, request, pk=None):
-        base_url = request.build_absolute_uri('/').rstrip('/')
+        base_url = settings.MEDIA_DOMAIN
         short_code = encode(self.get_object().id)
         short_url = f'{base_url}/s/{short_code}'
         return Response({'short-link': short_url})
