@@ -200,7 +200,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         ).data
         if instance.image:
             representation['image'] = (
-                f'{settings.MEDIA_DOMAIN}{instance.image.url}' \
+                f'{settings.MEDIA_DOMAIN}{instance.image.url}'
                 if settings.MEDIA_DOMAIN else instance.image.url
             )
         else:
