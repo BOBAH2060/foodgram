@@ -6,7 +6,6 @@ from recipes.models import (
     Ingredient,
     Recipe,
     RecipeIngredient,
-    Subscription,
     Tag,
     User,
 )
