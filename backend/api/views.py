@@ -1,10 +1,11 @@
-from django.db.models import Sum
+﻿from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.conf import settings
 
 from recipes.models import (
     Favorite,
@@ -16,76 +17,64 @@ from recipes.models import (
     Tag,
     User,
 )
+
+from .filters import IngredientFilter, RecipeFilter
+from .mixins import AddRemoveMixin
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
     AdminUserSerializer,
     CreateUserSerializer,
-    FavoriteSerializer,
     IngredientSerializer,
-    RecipeSerializer,
+    RecipeReadSerializer,
     RecipeShortSerializer,
-    ShoppingCartSerializer,
+    RecipeWriteSerializer,
     SubscriptionSerializer,
     TagSerializer,
     UserSerializer,
 )
-from .mixins import AddRemoveMixin
-from .services.short_links import encode
+from .services.short_links import RecipeShortLinkService
 
 
 class RecipeViewSet(AddRemoveMixin, viewsets.ModelViewSet):
-    queryset = Recipe.objects.all()
-    serializer_class = RecipeSerializer
-    permission_classes = [
-        permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly
-    ]
+    """Manage recipes with favorites, shopping cart, and short links."""
 
-    def get_queryset(self):
-        queryset = Recipe.objects.select_related('author').prefetch_related(
-            'tags', 'ingredients'
-        )
+    queryset = Recipe.objects.select_related('author').prefetch_related(
+        'tags', 'ingredients'
+    ).order_by('-id')
+    permission_classes = (
+        permissions.IsAuthenticatedOrReadOnly,
+        IsAuthorOrReadOnly,
+    )
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = RecipeFilter
 
-        params = self.request.query_params
-
-        if author := params.get('author'):
-            queryset = queryset.filter(author_id=author)
-
-        if tags := params.getlist('tags'):
-            queryset = queryset.filter(tags__slug__in=tags).distinct()
-
-        if (
-            params.get('is_favorited') == '1'
-            and self.request.user.is_authenticated
-        ):
-            queryset = queryset.filter(favorited_by__user=self.request.user)
-
-        if (
-            params.get('is_in_shopping_cart') == '1'
-            and self.request.user.is_authenticated
-        ):
-            queryset = queryset.filter(
-                in_shopping_cart__user=self.request.user
-            )
-        queryset = queryset.order_by('-id')
-
-        return queryset
+    def get_serializer_class(self):
+        """Return appropriate serializer depending on action."""
+        if self.action in ('create', 'update', 'partial_update'):
+            return RecipeWriteSerializer
+        return RecipeReadSerializer
 
     def perform_create(self, serializer):
+        """Save a new recipe with current user as author."""
         serializer.save(author=self.request.user)
 
-    @action(detail=True, methods=['get'], url_path='get-link')
+    @action(detail=True, methods=('get',), url_path='get-link')
     def get_link(self, request, pk=None):
-        base_url = settings.MEDIA_DOMAIN
-        short_code = encode(self.get_object().id)
-        short_url = f'{base_url}/s/{short_code}'
+        """Return short link URL for a recipe."""
+        short_code = RecipeShortLinkService.make_code(self.get_object().id)
+        short_path = reverse(
+            'short-link-redirect', kwargs={'short_code': short_code}
+        )
+        short_url = request.build_absolute_uri(short_path)
         return Response({'short-link': short_url})
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
-        permission_classes=[permissions.IsAuthenticated]
+        methods=('post', 'delete'),
+        permission_classes=(permissions.IsAuthenticated,),
     )
     def favorite(self, request, pk=None):
+        """Add or remove recipe from user's favorites."""
         self.model = Favorite
         self.serializer_class = RecipeShortSerializer
         recipe = get_object_or_404(Recipe, pk=pk)
@@ -96,10 +85,11 @@ class RecipeViewSet(AddRemoveMixin, viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
-        permission_classes=[permissions.IsAuthenticated]
+        methods=('post', 'delete'),
+        permission_classes=(permissions.IsAuthenticated,),
     )
     def shopping_cart(self, request, pk=None):
+        """Add or remove recipe from user's shopping cart."""
         self.model = ShoppingCart
         self.serializer_class = RecipeShortSerializer
         recipe = get_object_or_404(Recipe, pk=pk)
@@ -110,27 +100,27 @@ class RecipeViewSet(AddRemoveMixin, viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=['get'],
-        permission_classes=[permissions.IsAuthenticated]
+        methods=('get',),
+        permission_classes=(permissions.IsAuthenticated,),
     )
     def download_shopping_cart(self, request):
+        """Download aggregated shopping list of ingredients for user."""
         ingredients = RecipeIngredient.objects.filter(
             recipe__in_shopping_cart__user=request.user
         ).values(
             'ingredient__name',
-            'ingredient__measurement_unit'
+            'ingredient__measurement_unit',
         ).annotate(total=Sum('amount'))
 
-        content = ['Список покупок:\n']
-        content.extend(
+        lines = ['Список покупок:\n']
+        lines.extend(
             f"- {item['ingredient__name']} "
-            f"({item['ingredient__measurement_unit']}) — {item['total']}"
+            f"({item['ingredient__measurement_unit']}) - "
+            f"{item['total']}"
             for item in ingredients
         )
 
-        response = HttpResponse(
-            '\n'.join(content), content_type='text/plain'
-        )
+        response = HttpResponse('\n'.join(lines), content_type='text/plain')
         response['Content-Disposition'] = (
             f'attachment; filename={request.user.username}_shopping_list.txt'
         )
@@ -138,49 +128,32 @@ class RecipeViewSet(AddRemoveMixin, viewsets.ModelViewSet):
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only ViewSet for listing and filtering ingredients."""
+
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = (permissions.AllowAny,)
     pagination_class = None
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        if name := self.request.query_params.get('name'):
-            queryset = queryset.filter(name__istartswith=name)
-        return queryset
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = IngredientFilter
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only ViewSet for listing tags."""
+
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = (permissions.AllowAny,)
     pagination_class = None
 
 
-class ShoppingCartViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = ShoppingCartSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return ShoppingCart.objects.filter(
-            user=self.request.user
-        ).select_related('recipe')
-
-
-class FavoriteViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = FavoriteSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Favorite.objects.filter(
-            user=self.request.user
-        ).select_related('recipe')
-
-
 class UserViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing users and subscriptions."""
+
     queryset = User.objects.all()
 
     def get_permissions(self):
+        """Return permissions depending on action and user role."""
         if self.action in ('create', 'list', 'retrieve'):
             return [permissions.AllowAny()]
         if self.request.user.is_staff:
@@ -188,26 +161,27 @@ class UserViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def get_serializer_class(self):
+        """Return serializer class depending on action and user role."""
         if self.action == 'create':
             return CreateUserSerializer
         if self.request.user.is_staff:
             return AdminUserSerializer
         return UserSerializer
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=('get',))
     def me(self, request):
-        serializer = UserSerializer(
-            request.user, context={'request': request}
-        )
+        """Return current user's profile."""
+        serializer = UserSerializer(request.user, context={'request': request})
         return Response(serializer.data)
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=('post',))
     def set_password(self, request):
+        """Change password for the current user."""
         user = request.user
         if not user.check_password(request.data.get('current_password')):
             return Response(
                 {'detail': 'Текущий пароль неверный'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         user.set_password(request.data.get('new_password'))
@@ -216,10 +190,12 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=['post', 'get', 'delete', 'put'],
-        url_path='me/avatar'
+        methods=('post', 'get', 'delete', 'put'),
+        url_path='me/avatar',
+        permission_classes=(permissions.IsAuthenticated,),
     )
     def avatar(self, request):
+        """Manage current user's avatar (get, set, or delete)."""
         user = request.user
 
         if request.method == 'GET':
@@ -232,96 +208,87 @@ class UserViewSet(viewsets.ModelViewSet):
             if not avatar:
                 return Response(
                     {'detail': 'Файл не предоставлен'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
+
             serializer = UserSerializer(
                 user,
                 data={'avatar': avatar},
                 partial=True,
-                context={'request': request}
+                context={'request': request},
             )
             serializer.is_valid(raise_exception=True)
             serializer.save()
-
             return Response(
                 {'avatar': serializer.data['avatar']},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
-        if request.method == 'DELETE':
-            if not user.avatar.name.startswith('data:image'):
-                user.avatar.delete(save=False)
-            user.avatar = None
-            user.save(update_fields=['avatar'])
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        if user.avatar:
+            user.avatar.delete(save=False)
+        user.avatar = None
+        user.save(update_fields=('avatar',))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
-        permission_classes=[permissions.IsAuthenticated]
+        methods=('post', 'delete'),
+        permission_classes=(permissions.IsAuthenticated,),
     )
     def subscribe(self, request, pk=None):
+        """Subscribe or unsubscribe to another user."""
         author = get_object_or_404(User, pk=pk)
 
         if request.user == author:
             return Response(
                 {'errors': 'Нельзя подписаться на себя'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         if request.method == 'POST':
-            obj, created = Subscription.objects.get_or_create(
+            _, created = Subscription.objects.get_or_create(
                 user=request.user,
-                author=author
+                author=author,
             )
             if not created:
                 return Response(
                     {'errors': 'Вы уже подписаны'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             serializer = SubscriptionSerializer(
-                author, context={'request': request}
+                author,
+                context={'request': request},
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         deleted, _ = Subscription.objects.filter(
-            user=request.user, author=author
+            user=request.user,
+            author=author,
         ).delete()
-
         if not deleted:
             return Response(
                 {'errors': 'Вы не подписаны'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=False,
-        methods=['get'],
-        permission_classes=[permissions.IsAuthenticated]
+        methods=('get',),
+        permission_classes=(permissions.IsAuthenticated,),
     )
     def subscriptions(self, request):
+        """List all authors current user is subscribed to."""
         authors = User.objects.filter(
             subscribed__user=request.user
-        ).prefetch_related('recipes')
+        ).prefetch_related('recipes').order_by('id')
 
         page = self.paginate_queryset(authors)
         serializer = SubscriptionSerializer(
-            page or authors,
+            page if page is not None else authors,
             many=True,
-            context={'request': request}
+            context={'request': request},
         )
-        if page:
+        if page is not None:
             return self.get_paginated_response(serializer.data)
-        else:
-            return Response(serializer.data)
-
-
-class SubscriptionViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = SubscriptionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Subscription.objects.filter(
-            user=self.request.user
-        ).select_related('author').prefetch_related('author__recipes')
+        return Response(serializer.data)

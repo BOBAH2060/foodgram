@@ -3,10 +3,13 @@ from rest_framework.response import Response
 
 
 class AddRemoveMixin:
+    """Mixin for adding and removing recipe relations."""
+
     model = None
     serializer_class = None
 
     def add(self, user, recipe):
+        """Add a recipe relation for the given user."""
         obj, created = self.model.objects.get_or_create(
             user=user,
             recipe=recipe
@@ -22,6 +25,7 @@ class AddRemoveMixin:
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def remove(self, user, recipe):
+        """Remove a recipe relation for the given user."""
         deleted, _ = self.model.objects.filter(
             user=user,
             recipe=recipe

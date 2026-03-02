@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
-from api.services.short_links import redirect_short_link
+from .views import short_link_redirect
 
 
 urlpatterns = [
@@ -8,7 +8,7 @@ urlpatterns = [
     path('api/', include('api.urls')),
     path(
         's/<str:short_code>/',
-        redirect_short_link,
+        short_link_redirect,
         name='short-link-redirect'
     ),
 ]

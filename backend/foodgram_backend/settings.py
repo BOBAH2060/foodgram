@@ -1,4 +1,4 @@
-# flake8: noqa
+﻿# flake8: noqa
 import os
 from pathlib import Path
 
@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_nested',
+    'django_filters',
     'djoser',
     'api',
     'recipes',
@@ -103,7 +104,7 @@ STATIC_ROOT = '/backend_static/static'
 
 if MEDIA_DOMAIN:
     MEDIA_URL = f'{MEDIA_DOMAIN}/media/'
-    CSRF_TRUSTED_ORIGINS = [MEDIA_DOMAIN,]
+    CSRF_TRUSTED_ORIGINS = [MEDIA_DOMAIN]
 else:
     MEDIA_URL = '/media/'
 
@@ -111,11 +112,13 @@ MEDIA_ROOT = '/backend_media'
 
 DJOSER = {
     'USER_CREATE_PASSWORD_RETYPE': False,
-    'SERIALIZERS': {
-        'token_create': 'api.serializers.EmailAuthTokenSerializer',
-    },
+    'LOGIN_FIELD': 'email',
 }
 
+AUTHENTICATION_BACKENDS = [
+    'djoser.auth_backends.LoginFieldBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
@@ -125,5 +128,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
     ],
 }

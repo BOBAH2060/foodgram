@@ -1,39 +1,49 @@
-import re
+﻿import re
+
 from django.core.exceptions import ValidationError
 
 
-def validate_username_format(value):
-    if not re.match(r'^[\w.@+-]+\Z', value):
+def validate_username_format(username):
+    """Validate allowed characters and reserved usernames."""
+    if not re.match(r'^[\w.@+-]+\Z', username):
         raise ValidationError(
             "Username должен содержать только буквы, цифры и символы @/./+/-/_"
         )
-    if value.lower() == 'me':
+    if username.lower() == 'me':
         raise ValidationError(
             "Использовать 'me' в качестве username запрещено."
         )
-    return value
+    return username
 
 
-def validate_ingredients(value):
-    if not value:
+def validate_ingredients(ingredients_data):
+    """Validate ingredient list for emptiness and duplicates."""
+    if not ingredients_data:
         raise ValidationError(
             'Рецепт должен содержать хотя бы один ингредиент.'
         )
-    if isinstance(value[0], dict):
-        ids = [item.get('id') for item in value]
-        if len(ids) != len(set(ids)):
-            raise ValidationError('Ингредиенты не должны повторяться.')
 
-    return value
+    ingredient_ids = []
+    for ingredient_item in ingredients_data:
+        if isinstance(ingredient_item, dict):
+            ingredient_ids.append(ingredient_item.get('id'))
+        else:
+            ingredient_ids.append(ingredient_item)
+
+    if len(ingredient_ids) != len(set(ingredient_ids)):
+        raise ValidationError('Ингредиенты не должны повторяться.')
+
+    return ingredients_data
 
 
-def validate_tags(value):
-    if not value:
+def validate_tags(tags_data):
+    """Validate tag list for emptiness and duplicates."""
+    if not tags_data:
         raise ValidationError(
             'Рецепт должен содержать хотя бы один тег.'
         )
 
-    if len(value) != len(set(value)):
+    if len(tags_data) != len(set(tags_data)):
         raise ValidationError('Теги в рецепте не должны повторяться.')
 
-    return value
+    return tags_data
