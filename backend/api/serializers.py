@@ -145,8 +145,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         """Return absolute or relative image URL."""
         if not recipe.image:
             return None
-        if settings.MEDIA_DOMAIN:
-            return f'{settings.MEDIA_DOMAIN}{recipe.image.url}'
         return recipe.image.url
 
 
