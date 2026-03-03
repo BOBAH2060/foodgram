@@ -1,15 +1,12 @@
 ﻿import django_filters
 
 from recipes.models import Ingredient, Recipe
-
 from .constants import ENABLED_FILTER_VALUE, DISABLED_FILTER_VALUE
 
 
 class RecipeFilter(django_filters.FilterSet):
     """FilterSet for filtering recipes by author, tags and user relations."""
 
-    author = django_filters.NumberFilter(field_name='author_id')
-    tags = django_filters.AllValuesMultipleFilter(field_name='tags__slug')
     is_favorited = django_filters.NumberFilter(method='filter_is_favorited')
     is_in_shopping_cart = django_filters.NumberFilter(
         method='filter_is_in_shopping_cart'

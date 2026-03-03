@@ -5,12 +5,11 @@ from rest_framework.response import Response
 class AddRemoveMixin:
     """Mixin for adding and removing recipe relations."""
 
-    model = None
-    serializer_class = None
-
-    def add(self, user, recipe):
+    def add_to_user_relation(
+            self, user, recipe, model, serializer_class=None, request=None
+    ):
         """Add a recipe relation for the given user."""
-        obj, created = self.model.objects.get_or_create(
+        obj, created = model.objects.get_or_create(
             user=user,
             recipe=recipe
         )
@@ -19,14 +18,14 @@ class AddRemoveMixin:
                 {'errors': 'Рецепт уже добавлен'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        serializer = self.serializer_class(
-            recipe, context={'request': self.request}
+        serializer = serializer_class(
+            recipe, context={'request': request}
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def remove(self, user, recipe):
+    def remove_from_user_relation(self, user, recipe, model):
         """Remove a recipe relation for the given user."""
-        deleted, _ = self.model.objects.filter(
+        deleted, _ = model.objects.filter(
             user=user,
             recipe=recipe
         ).delete()

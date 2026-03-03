@@ -75,13 +75,14 @@ class RecipeViewSet(AddRemoveMixin, viewsets.ModelViewSet):
     )
     def favorite(self, request, pk=None):
         """Add or remove recipe from user's favorites."""
-        self.model = Favorite
-        self.serializer_class = RecipeShortSerializer
         recipe = get_object_or_404(Recipe, pk=pk)
+        favorite_serializer = RecipeShortSerializer
 
         if request.method == 'POST':
-            return self.add(request.user, recipe)
-        return self.remove(request.user, recipe)
+            return self.add_to_user_relation(
+                request.user, recipe, Favorite, favorite_serializer
+            )
+        return self.remove_from_user_relation(request.user, recipe, Favorite)
 
     @action(
         detail=True,
@@ -90,13 +91,16 @@ class RecipeViewSet(AddRemoveMixin, viewsets.ModelViewSet):
     )
     def shopping_cart(self, request, pk=None):
         """Add or remove recipe from user's shopping cart."""
-        self.model = ShoppingCart
-        self.serializer_class = RecipeShortSerializer
         recipe = get_object_or_404(Recipe, pk=pk)
+        cart_serializer = RecipeShortSerializer
 
         if request.method == 'POST':
-            return self.add(request.user, recipe)
-        return self.remove(request.user, recipe)
+            return self.add_to_user_relation(
+                request.user, recipe, ShoppingCart, cart_serializer
+            )
+        return self.remove_from_user_relation(
+            request.user, recipe, ShoppingCart
+        )
 
     @action(
         detail=False,

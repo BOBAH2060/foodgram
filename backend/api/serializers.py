@@ -1,4 +1,5 @@
 ﻿from django.conf import settings
+
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 
@@ -9,12 +10,12 @@ from recipes.models import (
     Tag,
     User,
 )
-
 from .constants import MIN_INGREDIENT_AMOUNT, USER_NAME_MAX_LENGTH
 from .validators import (
     validate_ingredients,
     validate_tags,
     validate_username_format,
+    validate_image,
 )
 
 
@@ -121,23 +122,24 @@ class RecipeReadSerializer(serializers.ModelSerializer):
             'is_in_shopping_cart',
         )
 
+    def _check_user_relation(self, recipe, relation):
+        """Return True if recipe is related to current user."""
+        request = self.context.get('request')
+
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return getattr(recipe, relation).filter(
+            user=request.user
+        ).exists()
+
     def get_is_favorited(self, recipe):
         """Return True if recipe is favorited by current user."""
-        request = self.context.get('request')
-        return bool(
-            request
-            and request.user.is_authenticated
-            and recipe.favorited_by.filter(user=request.user).exists()
-        )
+        return self._check_user_relation(recipe, 'favorited_by')
 
     def get_is_in_shopping_cart(self, recipe):
         """Return True if recipe is in current user's shopping cart."""
-        request = self.context.get('request')
-        return bool(
-            request
-            and request.user.is_authenticated
-            and recipe.in_shopping_cart.filter(user=request.user).exists()
-        )
+        return self._check_user_relation(recipe, 'in_shopping_cart')
 
     def get_image(self, recipe):
         """Return absolute or relative image URL."""
@@ -161,7 +163,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         many=True,
         required=True,
     )
-    image = Base64ImageField(required=True)
+    image = Base64ImageField(required=True, allow_null=False)
 
     class Meta:
         model = Recipe
@@ -183,16 +185,31 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                     {required_field: 'Поле обязательно'}
                 )
 
-        if not self.initial_data.get('image'):
-            raise serializers.ValidationError({'image': 'Поле обязательно'})
-
         validate_ingredients(self.initial_data['ingredients'])
         validate_tags(self.initial_data['tags'])
+        validate_image(self.initial_data['image'])
         return attrs
 
     def to_representation(self, instance):
         """Return read serializer representation."""
         return RecipeReadSerializer(instance, context=self.context).data
+
+    def _set_recipe_relations(self, recipe, ingredients_data, tags_data):
+        """Set tags and ingredients for a recipe."""
+        recipe.tags.set(tags_data)
+
+        recipe.recipeingredient_set.all().delete()
+
+        RecipeIngredient.objects.bulk_create(
+            [
+                RecipeIngredient(
+                    recipe=recipe,
+                    ingredient=item['ingredient'],
+                    amount=item['amount'],
+                )
+                for item in ingredients_data
+            ]
+        )
 
     def create(self, validated_data):
         """Create recipe with related ingredients and tags."""
@@ -200,15 +217,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         tags_data = validated_data.pop('tags')
 
         recipe = Recipe.objects.create(**validated_data)
-        recipe.tags.set(tags_data)
-        RecipeIngredient.objects.bulk_create([
-            RecipeIngredient(
-                recipe=recipe,
-                ingredient=item['ingredient'],
-                amount=item['amount'],
-            )
-            for item in ingredients_data
-        ])
+        self._set_recipe_relations(recipe, ingredients_data, tags_data)
+
         return recipe
 
     def update(self, instance, validated_data):
@@ -217,17 +227,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         tags_data = validated_data.pop('tags')
 
         instance = super().update(instance, validated_data)
-        instance.tags.set(tags_data)
+        self._set_recipe_relations(instance, ingredients_data, tags_data)
 
-        instance.recipeingredient_set.all().delete()
-        RecipeIngredient.objects.bulk_create([
-            RecipeIngredient(
-                recipe=instance,
-                ingredient=item['ingredient'],
-                amount=item['amount'],
-            )
-            for item in ingredients_data
-        ])
         return instance
 
 

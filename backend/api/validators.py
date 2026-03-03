@@ -47,3 +47,11 @@ def validate_tags(tags_data):
         raise ValidationError('Теги в рецепте не должны повторяться.')
 
     return tags_data
+
+
+def validate_image(image_data):
+    """Validate image for emptiness."""
+    if not image_data:
+        raise ValidationError(
+            'Рецепт должен содержать изображение.'
+        )
