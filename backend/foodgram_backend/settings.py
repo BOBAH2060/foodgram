@@ -10,7 +10,7 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-...')
-MEDIA_DOMAIN = os.getenv('MEDIA_DOMAIN')
+MEDIA_DOMAIN = os.getenv('MEDIA_DOMAIN', 'http://localhost:8000')
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

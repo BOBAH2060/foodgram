@@ -1,4 +1,6 @@
-﻿from django.db.models import Sum
+﻿from django.conf import settings
+
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -17,7 +19,6 @@ from recipes.models import (
     Tag,
     User,
 )
-
 from .filters import IngredientFilter, RecipeFilter
 from .mixins import AddRemoveMixin
 from .permissions import IsAuthorOrReadOnly
@@ -65,7 +66,9 @@ class RecipeViewSet(AddRemoveMixin, viewsets.ModelViewSet):
         short_path = reverse(
             'short-link-redirect', kwargs={'short_code': short_code}
         )
-        short_url = request.build_absolute_uri(short_path)
+        domain = settings.MEDIA_DOMAIN.rstrip('/')
+        short_url = f'{domain}{short_path}'
+
         return Response({'short-link': short_url})
 
     @action(
