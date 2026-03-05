@@ -98,6 +98,12 @@ class RecipeIngredientInline(admin.TabularInline):
     extra = RECIPE_INGREDIENT_INLINE_EXTRA
     min_num = RECIPE_INGREDIENT_INLINE_MIN_NUM
     validate_min = True
+    autocomplete_fields = ['ingredient']
+    readonly_fields = ['measurement_unit']
+
+    def measurement_unit(self, obj):
+        return getattr(obj.ingredient, 'measurement_unit', '-')
+    measurement_unit.short_description = 'Ед. изм.'
 
 
 @admin.register(Recipe)
