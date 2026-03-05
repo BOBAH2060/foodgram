@@ -26,8 +26,8 @@ class User(AbstractUser):
         verbose_name='Аватар пользователя',
     )
 
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = []
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     class Meta:
         verbose_name = 'Пользователь'

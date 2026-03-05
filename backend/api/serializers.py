@@ -181,9 +181,15 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                     {required_field: 'Поле обязательно'}
                 )
 
-        validate_ingredients(self.initial_data['ingredients'])
-        validate_tags(self.initial_data['tags'])
-        validate_image(self.initial_data['image'])
+        if 'ingredients' in self.initial_data:
+            validate_ingredients(self.initial_data['ingredients'])
+
+        if 'tags' in self.initial_data:
+            validate_tags(self.initial_data['tags'])
+
+        if 'image' in self.initial_data:
+            validate_image(self.initial_data['image'])
+
         return attrs
 
     def to_representation(self, instance):
