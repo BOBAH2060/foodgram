@@ -5,7 +5,9 @@ from django.utils.translation import gettext_lazy as _
 
 from .constants import (
     RECIPE_INGREDIENT_INLINE_EXTRA,
-    RECIPE_INGREDIENT_INLINE_MIN_NUM
+    RECIPE_INGREDIENT_INLINE_MIN_NUM,
+    RECIPE_TAG_INLINE_EXTRA,
+    RECIPE_TAG_INLINE_MIN_NUM,
 )
 from .models import (
     User,
@@ -13,6 +15,7 @@ from .models import (
     Ingredient,
     Recipe,
     RecipeIngredient,
+    RecipeTag,
     Subscription,
     Favorite,
     ShoppingCart
@@ -106,11 +109,19 @@ class RecipeIngredientInline(admin.TabularInline):
     measurement_unit.short_description = 'Ед. изм.'
 
 
+class RecipeTagInline(admin.TabularInline):
+    model = RecipeTag
+    extra = RECIPE_TAG_INLINE_EXTRA
+    min_num = RECIPE_TAG_INLINE_MIN_NUM
+    validate_min = True
+    autocomplete_fields = ['tag']
+
+
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'author', 'cooking_time', 'favorites_count')
     list_filter = ('tags', 'author')
-    inlines = (RecipeIngredientInline,)
+    inlines = (RecipeIngredientInline, RecipeTagInline)
 
     def favorites_count(self, obj):
         return obj.favorited_by.count()
