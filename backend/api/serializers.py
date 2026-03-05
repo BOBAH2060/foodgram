@@ -159,7 +159,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         many=True,
         required=True,
     )
-    image = Base64ImageField(required=True, allow_null=False)
+    image = Base64ImageField(required=False, allow_null=False)
 
     class Meta:
         model = Recipe
@@ -175,10 +175,14 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         """Validate required fields and related objects."""
-        for required_field in ('ingredients', 'tags', 'image'):
-            if required_field not in self.initial_data:
+        required_fields = ['ingredients', 'tags']
+        if self.instance is None:
+            required_fields.append('image')
+
+        for field in required_fields:
+            if field not in self.initial_data:
                 raise serializers.ValidationError(
-                    {required_field: 'Поле обязательно'}
+                    {field: 'Поле обязательно'}
                 )
 
         if 'ingredients' in self.initial_data:
